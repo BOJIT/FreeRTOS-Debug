@@ -20,10 +20,20 @@
      * @brief This message is added to the queue if
      * there is only one space left.
      */
-    static debug_t queue_full;
+    debug_t queue_full;
 
     /** @brief The queue itself */
-    static QueueHandle_t debug_queue;
+    QueueHandle_t debug_queue;
+
+    /** @brief Task handle that can be passed to the ISR */
+    TaskHandle_t debug_task;
+
+    /**
+     * @brief Function pointer for actual debug character write.
+     * This is a global variable as a function pointer cannot easily
+     * be passed to a task.
+     */
+    void (*debug_func)(char);
 #endif /* DEBUG_LEVEL >= DEBUG_ERRORS */
 
 /*----------------------------- Private Functions ----------------------------*/
@@ -55,13 +65,23 @@
     /**
      * @brief Task that handles actually sending the messages in a multi-threaded
      * environment.
-     * @param send_func function pointer to a function that sends one char over
-     * serial in a non-blocking manner.
+     * @param args unused.
      */
-    static void debug_handler(void *send_func)
+    static void debug_handler(void *args __attribute((unused)))
     {
         for(;;) {
+            /* Block until there is an item in the queue */
+            debug_t debug_next;
+            xQueueReceive(debug_queue, &debug_next, portMAX_DELAY);
+            for(int i = 0; i < 5; i++) {
+                ulTaskNotifyTake(pdFALSE, portMAX_DELAY); // Wait for ISR
 
+                /* Reset the task notifier for next ISR */
+                debug_task = xTaskGetCurrentTaskHandle();
+
+                /* Print Character to UART */
+                debug_func(65);
+            }
         }
     }
 #endif /* DEBUG_LEVEL >= DEBUG_ERRORS */
@@ -78,30 +98,29 @@
  * @param send_func function pointer to a function that sends one char in a
  * non-blocking manner.
  * 
- * @retval handle of the task that was created to handle the debug messages.
+ * @retval pointer to handle of the task that was created to handle debugging.
  * This task will block after a character is sent, so should be unblocked with a
  * direct task notification in an ISR.
  */
-TaskHandle_t debugInitialise(size_t queue_length, void (*init_func)(void),
+TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
                                                     void (*send_func)(char))
 {
-    TaskHandle_t task_handle;
     #if DEBUG_LEVEL >= DEBUG_ERRORS
         /* Call passed initialisation function */
         (*init_func)();
+        debug_func = send_func;
 
         /* Initialise message queue */
         debug_queue = xQueueCreate(queue_length, sizeof(debug_t));
 
         /* Create debug task and pass handle back to the user application */
-        xTaskCreate(debug_handler, "debug", 350, (void *)send_func,
-                                                            1, &task_handle);
+        xTaskCreate(debug_handler, "debug", 350, NULL, 1, &debug_task);
 
         /* Populate 'Queue Full' message partially */
         queue_full.type = DEBUG_TYPE_ERROR;
-        queue_full.task_handle = task_handle;
+        queue_full.task_handle = debug_task;
     #endif /* DEBUG_LEVEL >= DEBUG_ERRORS */
-    return task_handle;
+    return &debug_task;
 }
 
 /**

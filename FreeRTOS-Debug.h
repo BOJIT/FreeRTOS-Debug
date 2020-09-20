@@ -87,11 +87,11 @@ void debug_send_message(debug_t debug);
  * @param send_func function pointer to a function that sends one char in a
  * non-blocking manner.
  * 
- * @retval handle of the task that was created to handle the debug messages.
+ * @retval pointer to handle of the task that was created to handle debugging.
  * This task will block after a character is sent, so should be unblocked with a
  * direct task notification in an ISR.
  */
-TaskHandle_t debugInitialise(size_t queue_length, void (*init_func)(void),
+TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
                                                     void (*send_func)(char));
 
 /**
