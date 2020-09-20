@@ -1,0 +1,23 @@
+{
+    "name" : "FreeRTOS-Debug",
+    "description": "Simple non-blocking printf()-style debugging for FreeRTOS",
+    "keywords": "debug, printf, FreeRTOS",
+    "authors": [
+        {
+            "name": "James Bennion-Pedley",
+            "url": "https://github.com/BOJIT",
+            "maintainer": true
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BOJIT/FreeRTOS-Debug"
+    },
+    "version" : "1.0.0",
+    "license": "MIT",
+    "frameworks": "libopencm3",
+    "platforms": "ststm32, gd32v, siliconlabsefm32, nxplpc, atmelsam",
+    "dependencies": {
+        "bojit/PlatformIO-FreeRTOS": "^1.0.0"
+    }
+}
