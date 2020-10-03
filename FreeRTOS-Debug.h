@@ -25,9 +25,9 @@
 #define DEBUG_FULL      4
 
 /** @brief Debug Types */
-#define DEBUG_TYPE_INFO     0
-#define DEBUG_TYPE_WARNING  1
-#define DEBUG_TYPE_ERROR    2
+#define DEBUG_TYPE_INFO     'I'
+#define DEBUG_TYPE_WARNING  'W'
+#define DEBUG_TYPE_ERROR    'E'
 
 /** @brief Parentheses removal macro */
 #define ESC(...) __VA_ARGS__
@@ -62,11 +62,11 @@ void debug_send_message(debug_t debug);
  */
 #ifdef DEBUG_LEVEL
 #if DEBUG_LEVEL >= DEBUG_ERRORS
-    #define DEBUG_MESSAGE(debug_type, message) do { \
+    #define DEBUG_MESSAGE(debug_type, raw_message) do { \
             debug_t debug; \
             debug.type = debug_type; \
-            debug.message = pvPortMalloc(snprintf(NULL, 0, ESC(message)));\
-            sprintf(debug.message, ESC(message)); \
+            debug.message = pvPortMalloc(snprintf(NULL, 0, ESC(raw_message)));\
+            sprintf(debug.message, ESC(raw_message)); \
             debug_send_message(debug); \
         } while(0)
 #else
@@ -86,13 +86,14 @@ void debug_send_message(debug_t debug);
  * means that send_func uses to do the logging.
  * @param send_func function pointer to a function that sends one char in a
  * non-blocking manner.
- * 
+ * @param reset_func function pointer to system reset function.
+ *
  * @retval pointer to handle of the task that was created to handle debugging.
  * This task will block after a character is sent, so should be unblocked with a
  * direct task notification in an ISR.
  */
 TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
-                                                    void (*send_func)(char));
+                            void (*send_func)(char), void (*reset_func)(void));
 
 /**
  * @brief Suspend all tasks and halt everything for debugging.
