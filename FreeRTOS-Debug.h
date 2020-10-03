@@ -30,9 +30,6 @@
 #define DEBUG_TYPE_WARNING  'W'
 #define DEBUG_TYPE_ERROR    'E'
 
-/** @brief Parentheses removal macro */
-#define ESC(...) __VA_ARGS__
-
 /** @brief Debug struct that is added to the message queue */
 typedef struct {
     char type;
@@ -61,16 +58,16 @@ void debug_send_message(debug_t debug);
 /**
  * @brief Add debug message to output queue.
  * @param debug_type debug message type - see Debug Types.
- * @param raw_msg printf-style arguments.
+ * @param __VA_ARGS__ printf-style arguments.
  */
 #ifdef DEBUG_LEVEL
 #if DEBUG_LEVEL >= DEBUG_ERRORS
-    #define DEBUG_MESSAGE(debug_type, raw_msg) do { \
+    #define DEBUG_MESSAGE(debug_type, ...) do { \
             debug_t debug; \
             if(debug_check_level(debug_type)) { \
                 debug.type = debug_type; \
-                debug.message = pvPortMalloc(snprintf(NULL, 0, ESC(raw_msg))); \
-                sprintf(debug.message, ESC(raw_msg)); \
+                debug.message = pvPortMalloc(snprintf(NULL, 0, __VA_ARGS__)); \
+                sprintf(debug.message, __VA_ARGS__); \
                 debug_send_message(debug); \
             } \
         } while(0)

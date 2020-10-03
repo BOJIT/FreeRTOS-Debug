@@ -13,7 +13,7 @@
         "type": "git",
         "url": "https://github.com/BOJIT/FreeRTOS-Debug"
     },
-    "version" : "1.0.0",
+    "version" : "1.0.1",
     "license": "MIT",
     "frameworks": "libopencm3",
     "platforms": "ststm32, gd32v, siliconlabsefm32, nxplpc, atmelsam",
