@@ -11,6 +11,7 @@
 #define __FREERTOS_DEBUG__
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -43,9 +44,11 @@ typedef struct {
 
 /**
  * @brief Internal function used to allocate memory for the error string.
- * @param length length of message passed in printf-style message.
+ * @param debug_type level of debugging (handled by preprocessor).
+ *
+ * @retval true if message should be logged, false if not.
  */
-char* debug_pre_message(size_t length);
+bool debug_check_level(char debug_type);
 
 /**
  * @brief Internal function used add debug message to the queue.
@@ -58,16 +61,18 @@ void debug_send_message(debug_t debug);
 /**
  * @brief Add debug message to output queue.
  * @param debug_type debug message type - see Debug Types.
- * @param message printf-style arguments.
+ * @param raw_msg printf-style arguments.
  */
 #ifdef DEBUG_LEVEL
 #if DEBUG_LEVEL >= DEBUG_ERRORS
-    #define DEBUG_MESSAGE(debug_type, raw_message) do { \
+    #define DEBUG_MESSAGE(debug_type, raw_msg) do { \
             debug_t debug; \
-            debug.type = debug_type; \
-            debug.message = pvPortMalloc(snprintf(NULL, 0, ESC(raw_message)));\
-            sprintf(debug.message, ESC(raw_message)); \
-            debug_send_message(debug); \
+            if(debug_check_level(debug_type)) { \
+                debug.type = debug_type; \
+                debug.message = pvPortMalloc(snprintf(NULL, 0, ESC(raw_msg))); \
+                sprintf(debug.message, ESC(raw_msg)); \
+                debug_send_message(debug); \
+            } \
         } while(0)
 #else
     #define DEBUG_MESSAGE(debug_type, message)
@@ -89,8 +94,6 @@ void debug_send_message(debug_t debug);
  * @param reset_func function pointer to system reset function.
  *
  * @retval pointer to handle of the task that was created to handle debugging.
- * This task will block after a character is sent, so should be unblocked with a
- * direct task notification in an ISR.
  */
 TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
                             void (*send_func)(char), void (*reset_func)(void));

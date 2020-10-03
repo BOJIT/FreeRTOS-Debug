@@ -15,8 +15,8 @@
 
 /*----------------------------- Global Variables -----------------------------*/
 
-/** @brief Task handle that can be passed to the ISR */
-TaskHandle_t debug_task;
+/** @brief Task handle of the debug task */
+static TaskHandle_t debug_task;
 
 #if DEBUG_LEVEL >= DEBUG_ERRORS
     /**
@@ -28,27 +28,50 @@ TaskHandle_t debug_task;
     /** @brief The queue itself */
     static QueueHandle_t debug_queue;
 
-    /**
-     * @brief Function pointer for the debug hardware initialisation function.
-     */
-    static void (*global_init_func)(void);
-
-    /**
-     * @brief Function pointer for actual debug character write.
-     * This is a global variable as a function pointer cannot easily
-     * be passed to a task.
-     */
-    static void (*global_send_func)(char);
-
-    /**
-     * @brief Function pointer for the system reset function.
-     */
-    static void (*global_reset_func)(void);
 #endif /* DEBUG_LEVEL >= DEBUG_ERRORS */
+
+/**
+ * @brief Function pointer for the debug hardware initialisation function.
+ */
+static void (*global_init_func)(void);
+
+/**
+ * @brief Function pointer for actual debug character write.
+ * This is a global variable as a function pointer cannot easily
+ * be passed to a task.
+ */
+static void (*global_send_func)(char);
+
+/**
+ * @brief Function pointer for the system reset function.
+ */
+static void (*global_reset_func)(void);
 
 /*----------------------------- Private Functions ----------------------------*/
 
 #if DEBUG_LEVEL >= DEBUG_ERRORS
+
+    /**
+     * @brief Internal function used to allocate memory for the error string.
+     * @param debug_type level of debugging (handled by preprocessor).
+     *
+     * @retval true if message should be logged, false if not.
+     */
+    bool debug_check_level(char debug_type) {
+        switch(debug_type) {
+            #if DEBUG_LEVEL >= DEBUG_FULL
+                case DEBUG_TYPE_INFO:
+            #endif /* DEBUG_LEVEL >= DEBUG_FULL */
+            #if DEBUG_LEVEL >= DEBUG_WARNINGS
+                case DEBUG_TYPE_WARNING:
+            #endif /* DEBUG_LEVEL >= DEBUG_WARNINGS */
+            case DEBUG_TYPE_ERROR:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     /**
      * @brief Internal function used add debug message to the queue.
      * @param debug_type debug message type - see Debug Types.
@@ -75,19 +98,6 @@ TaskHandle_t debug_task;
     }
 
     /**
-     * @brief Sends a single character to the user-defined debug interface,
-     * with direct task notification to prevent CPU time being used to wait.
-     * @param character character to send to debug.
-    */
-    static void debug_send_char(char character) {
-        global_send_func(character);
-        //ulTaskNotifyTake(pdFALSE, portMAX_DELAY); // Wait for ISR
-
-                /* Reset the task notifier for next ISR */
-                //debug_task = xTaskGetCurrentTaskHandle();
-    }
-
-    /**
      * @brief Task that handles actually sending the messages in a multi-threaded
      * environment.
      * @param args unused.
@@ -103,31 +113,32 @@ TaskHandle_t debug_task;
             /* Block until there is an item in the queue */
             debug_t debug_next;
             xQueueReceive(debug_queue, &debug_next, portMAX_DELAY);
+
             /* Print debug type and calling task */
-            debug_send_char(debug_next.type);
-            debug_send_char(' ');
-            debug_send_char('-');
-            debug_send_char(' ');
+            global_send_func(debug_next.type);
+            global_send_func(' ');
+            global_send_func('-');
+            global_send_func(' ');
             char* task_ptr = pcTaskGetName(debug_next.task_handle);
             while(*task_ptr != '\0') {
                 /* Print Character to debug console */
-                debug_send_char(*task_ptr);
+                global_send_func(*task_ptr);
 
                 task_ptr++;
             }
-            debug_send_char(' ');
-            debug_send_char('-');
-            debug_send_char(' ');
+            global_send_func(' ');
+            global_send_func('-');
+            global_send_func(' ');
 
             /* Write out message */
             char* message_ptr = debug_next.message;
             while(*message_ptr != '\0') {
                 /* Print Character to debug console */
-                debug_send_char(*message_ptr);
+                global_send_func(*message_ptr);
 
                 message_ptr++;
             }
-            debug_send_char('\n');
+            global_send_func('\n');
 
             /* Free the memory allocated to the message string */
             vPortFree(message_ptr);
@@ -149,17 +160,15 @@ TaskHandle_t debug_task;
  * @param reset_func function pointer to system reset function.
  *
  * @retval pointer to handle of the task that was created to handle debugging.
- * This task will block after a character is sent, so should be unblocked with a
- * direct task notification in an ISR.
  */
 TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
                             void (*send_func)(char), void (*reset_func)(void))
 {
+    /* Call passed initialisation function and assign the fptrs */
+    global_init_func = init_func;
+    global_send_func = send_func;
+    global_reset_func = reset_func;
     #if DEBUG_LEVEL >= DEBUG_ERRORS
-        /* Call passed initialisation function and assign the fptrs */
-        global_init_func = init_func;
-        global_send_func = send_func;
-        global_reset_func = reset_func;
 
         /* Initialise message queue */
         debug_queue = xQueueCreate(queue_length, sizeof(debug_t));
@@ -170,6 +179,9 @@ TaskHandle_t* debugInitialise(size_t queue_length, void (*init_func)(void),
         /* Populate 'Queue Full' message partially */
         queue_full.type = DEBUG_TYPE_ERROR;
         queue_full.task_handle = debug_task;
+    #else
+        /* Suppresses unused variable warning */
+        (void)(queue_length);
     #endif /* DEBUG_LEVEL >= DEBUG_ERRORS */
     return &debug_task;
 }
