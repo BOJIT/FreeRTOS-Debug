@@ -66,7 +66,7 @@ void debug_send_message(debug_t debug);
             debug_t debug; \
             if(debug_check_level(debug_type)) { \
                 debug.type = debug_type; \
-                debug.message = pvPortMalloc(snprintf(NULL, 0, __VA_ARGS__)); \
+                debug.message = pvPortMalloc(snprintf(NULL, 0, __VA_ARGS__) + 1); \
                 sprintf(debug.message, __VA_ARGS__); \
                 debug_send_message(debug); \
             } \
